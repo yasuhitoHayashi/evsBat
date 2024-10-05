@@ -6,9 +6,9 @@ In post-analysis, frequency analysis of the variations in event count is also po
 
 #### Input & Output
 
-<div style="display: flex; justify-content: space-between;">
-  <img src="sampleData/plotAllData.png" alt="original event data" width="45%">
-  <img src="sampleData/plotTrajectory.png" alt="Trajectory" width="45%">
+<div style="display: flex; align-items: flex-start;">
+  <img src="sampleData/plotAllData.png" alt="original event data" width="45%" style="vertical-align: top;">
+  <img src="sampleData/plotTrajectory.png" alt="Trajectory" width="45%" style="vertical-align: top;">
 </div>
 
 #### Output2: frequency
