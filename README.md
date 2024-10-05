@@ -39,6 +39,9 @@ You need to change parameters (sigma_x, sigma_t, gaussian_threshold, m_threshold
 #### Arguments
 - -i Path to the input csv file or directory.
 
+#### Input
+![original event data](sampleData/plotAllData.png)
+
 ### plotTrajectory.py
 Reads particle tracking data from a pickle file and plots the centroid trajectories of particles in 3D. The script also has an option to plot individual events associated with each particle, either fully or by sampling the data for visualization purposes.
 
