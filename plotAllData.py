@@ -5,7 +5,7 @@ from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
 # CSVファイルのパス
-file_path = 'yubi_605.csv'
+file_path = '/sampleData/yubi_605.csv'
 
 # CSVファイルの読み込み
 data = pd.read_csv(file_path, header=None, names=['x', 'y', 'polarity', 'time'])
@@ -71,7 +71,7 @@ ax3d.set_zlabel('Y Coordinate')
 ax3d.set_xlabel('Time (milliseconds)')
 ax3d.set_xlim([0, 2000])
 ax3d.set_ylim([0, 1280])
-ax3d.set_zlim([0, 720])
+ax3d.set_zlim([720, 0])
 
 # レイアウトの調整
 plt.tight_layout()
