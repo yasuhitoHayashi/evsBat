@@ -4,6 +4,16 @@ It is designed to track objects in event camera data streams without converting 
 The output data consists of the trajectory of the centroid and point clouds of events that make up the tracked objects. 
 In post-analysis, frequency analysis of the variations in event count is also possible.
 
+#### Input
+![original event data](sampleData/plotAllData.png)
+
+#### Output1: Trajectory
+![Trajectory](sampleData/plotTrajectory.png)
+
+#### Output2: frequency
+![Frequency](sampleData/fftAnalysis.png)
+
+
 ## Features
 - Direct tracking: Processes event-based camera data streams directly, avoiding the need for frame or voxel conversion.
 - Trajectory data: Outputs the trajectory of the object’s centroid for further analysis.
@@ -38,9 +48,6 @@ You need to change parameters (sigma_x, sigma_t, gaussian_threshold, m_threshold
 
 #### Arguments
 - -i Path to the input csv file or directory.
-
-#### Input
-![original event data](sampleData/plotAllData.png)
 
 ### plotTrajectory.py
 Reads particle tracking data from a pickle file and plots the centroid trajectories of particles in 3D. The script also has an option to plot individual events associated with each particle, either fully or by sampling the data for visualization purposes.
