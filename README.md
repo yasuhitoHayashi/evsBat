@@ -1,6 +1,6 @@
 # evsBat
 This repository is an adaptation of the tracking functionality from evsMarineSnow for bat analysis.
-It is designed to track objects in event camera data streams without converting the data into event frames or voxels, allowing for direct tracking.
+It is designed to track objects in event data without converting the data into event frames or voxels, allowing for direct tracking.
 The output data consists of the trajectory of the centroid and point clouds of events that make up the tracked objects. 
 In post-analysis, frequency analysis of the variations in event count is also possible.
 
