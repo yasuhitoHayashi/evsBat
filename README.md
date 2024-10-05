@@ -4,6 +4,17 @@ It is designed to track objects in event camera data streams without converting 
 The output data consists of the trajectory of the centroid and point clouds of events that make up the tracked objects. 
 In post-analysis, frequency analysis of the variations in event count is also possible.
 
+#### Input & Output
+
+<div style="display: flex; align-items: flex-start;">
+  <img src="sampleData/plotAllData.png" alt="original event data" width="45%" style="vertical-align: top;">
+  <img src="sampleData/plotTrajectory.png" alt="Trajectory" width="45%" style="vertical-align: top;">
+</div>
+
+#### Output2: frequency
+![Frequency](sampleData/fftAnalysis.png)
+
+
 ## Features
 - Direct tracking: Processes event-based camera data streams directly, avoiding the need for frame or voxel conversion.
 - Trajectory data: Outputs the trajectory of the object’s centroid for further analysis.
