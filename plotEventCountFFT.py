@@ -95,6 +95,9 @@ def process_pickle_file(particle_output_file):
     plt.subplot(1, 2, 2)
     plt.plot(fft_freq, 20 * np.log10(fft_amplitude), label='FFT Amplitude (dB)', linewidth=2)
     plt.scatter(fft_freq[peaks], 20 * np.log10(fft_amplitude[peaks]), color='red', marker='v', label='Peaks')
+    # dBスケールを使わない場合
+    #plt.plot(fft_freq, fft_amplitude, label='FFT Amplitude', linewidth=2)
+    #plt.scatter(fft_freq[peaks], fft_amplitude[peaks], color='red', marker='v', label='Peaks')
 
     # ピークの描画 (最大のものだけ赤、それ以外は黒)
     for i, peak in enumerate(peaks):
