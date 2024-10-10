@@ -33,7 +33,7 @@ In post-analysis, frequency analysis of the variations in event count is also po
 
 ## Modules Overview
 ### setup.py
-Script for building the C++ code using pybind11. It compiles the particle_tracking.cpp file into a Python module (particle_tracking). This code is now only tested on M1 mac environment.
+Script for building the C++ code using pybind11. It compiles the particle_tracking.cpp file into a Python module (particle_tracking). This code is now only tested on M1 mac and Windows 11 environments.
 
 ```bash
 python3 setup.py build_ext --inplace
