@@ -58,6 +58,11 @@ def process_pickle_file(particle_output_file):
     fft_freq = fft_freq[:N//2]
     fft_amplitude = fft_amplitude[:N//2]
 
+    # 周波数を制限
+    freq_mask = (fft_freq >= 1) & (fft_freq <= 30)
+    fft_freq = fft_freq[freq_mask]
+    fft_amplitude = fft_amplitude[freq_mask]
+
     # ピークを見つける
     peaks, properties = find_peaks(fft_amplitude, height=np.max(fft_amplitude) * 0.05)  # 10% threshold for peaks
     peak_frequencies = fft_freq[peaks]
