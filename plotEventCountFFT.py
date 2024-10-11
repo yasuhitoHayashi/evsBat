@@ -64,26 +64,16 @@ def process_pickle_file(particle_output_file):
     fft_amplitude = fft_amplitude[freq_mask]
 
     # ピークを見つける
-    peaks, properties = find_peaks(fft_amplitude, height=np.max(fft_amplitude) * 0.05)  # 10% threshold for peaks
+    peaks, properties = find_peaks(fft_amplitude, threshold=100)  # 10% threshold for peaks
     peak_frequencies = fft_freq[peaks]
     peak_amplitudes = fft_amplitude[peaks]
-    peak_heights = properties['peak_heights'] / np.max(fft_amplitude) * 100  # 正規化して高さを％で計算
-
-    # ピークが存在するか確認する
-    if len(peaks) > 0:
-        # ピークの中で最大のものを特定
-        max_height_index = np.argmax(peak_heights)
-    else:
-        # ピークがない場合は処理をスキップ
-        print(f"No peaks found in file: {particle_output_file}")
-        return
 
     # ピーク情報をテキストファイルに保存
     output_txt_file = os.path.join(fft_results_dir, f'{base_filename}_fft_peaks.txt')
     with open(output_txt_file, 'w') as f:
-        f.write("Frequency [Hz]\tAmplitude\tHeight [%]\n")
-        for freq, amp, height in zip(peak_frequencies, peak_amplitudes, peak_heights):
-            f.write(f"{freq:.2f}\t{amp:.2f}\t{height:.2f}\n")
+        f.write("Frequency [Hz]\tAmplitude\n")
+        for freq, amp in zip(peak_frequencies, peak_amplitudes):
+            f.write(f"{freq:.2f}\t{amp:.2f}\n")
     print(f"Peak data saved to {output_txt_file}")
 
     plt.figure(figsize=(20, 5))
@@ -109,14 +99,8 @@ def process_pickle_file(particle_output_file):
         freq = fft_freq[peak]
         amplitude = 20 * np.log10(fft_amplitude[peak])
 
-        if i == max_height_index:
-            # 最大のピークは赤
-            plt.scatter(freq, amplitude, color='red', marker='v', label='Max Peak')
-            plt.text(freq, amplitude + 2, f'{freq:.2f} Hz', fontsize=10, color='red', ha='center')
-        else:
-            # その他のピークは黒
-            plt.scatter(freq, amplitude, color='black', marker='v', label='Peak')
-            plt.text(freq, amplitude + 2, f'{freq:.2f} Hz', fontsize=10, color='black', ha='center')
+        plt.scatter(freq, amplitude, color='black', marker='v', label='Peak')
+        plt.text(freq, amplitude + 2, f'{freq:.2f} Hz', fontsize=10, color='black', ha='center')
 
     plt.xscale('log')
     plt.xlabel('Frequency [Hz]')
