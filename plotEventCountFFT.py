@@ -64,7 +64,7 @@ def process_pickle_file(particle_output_file):
     fft_amplitude = fft_amplitude[freq_mask]
 
     # ピークを見つける
-    peaks = find_peaks(fft_amplitude, threshold=100) # となりのピークとの差が100以上であるピークを取得
+    peaks, properties = find_peaks(fft_amplitude, threshold=100)
     peak_frequencies = fft_freq[peaks]
     peak_amplitudes = fft_amplitude[peaks]
 
