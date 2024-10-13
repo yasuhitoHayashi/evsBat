@@ -1,66 +1,43 @@
-import pandas as pd
-import argparse
+import particle_tracking
 import pickle
+import argparse
 import os
-from particle_tracking import track_particles_cpp  # C++ モジュールのインポート
 
-parser = argparse.ArgumentParser(description='Particle tracking script.')
-parser.add_argument('-i', '--input', required=True, help='Path to the input directory or file.')
+# コマンドライン引数の設定
+parser = argparse.ArgumentParser(description='Particle tracking using C++ extension with raw input files.')
+parser.add_argument('-i', '--input', required=True, help='Path to the input raw file or directory.')
 args = parser.parse_args()
-
 input_path = args.input
 
-# 粒子トラッキング用のパラメータ
-sigma_x = 6.0  # 空間的なスケールパラメータ, 精子は6, マリンスノー9
-sigma_t = 10000.0  # 時間的なスケールパラメータ, 精子は10000,
-gaussian_threshold = 0.8  # ガウス分布による閾値, 0.8くらいがよさそう
-m_threshold = 500  # 質量のしきい値, 100くらい
+# トラッキングパラメータの設定
+sigma_x = 6.0  # 空間的スケール
+sigma_t = 10000.0  # 時間的スケール
+gaussian_threshold = 0.8  # ガウス分布の閾値
+m_threshold = 500  # 質量のしきい値
 
+# ファイル処理関数
 def process_file(file_path):
     print(f"Processing file: {file_path}")
     
-    # CSVファイル読み込み
-    data_filtered = pd.read_csv(file_path, header=None, names=['x', 'y', 'polarity', 'time'])
+    # 粒子追跡を実行 (C++で直接.rawファイルを処理)
+    results = particle_tracking.track_particles_from_raw(file_path, sigma_x, sigma_t, gaussian_threshold, m_threshold)
     
-    # posiデータに制限
-    #data_filtered = data[data['polarity'] == 1].copy()
+    # 結果を辞書形式で保存
+    output = {result.particle_id: {'centroid_history': result.centroid_history, 'events': result.events} for result in results}
     
-    data_list = [tuple(row) for row in data_filtered[['x', 'y', 'time']].itertuples(index=False, name=None)]
+    # 結果をpickleファイルに保存
+    output_file = os.path.splitext(file_path)[0] + '_tracking_results.pkl'
+    with open(output_file, 'wb') as f:
+        pickle.dump(output, f)
     
-    print(f"Number of data points after filtering: {len(data_filtered)}")
-    
-    try:
-        # C++の関数を呼び出す (sigma_x, sigma_t, gaussian_threshold を使用)
-        particles = track_particles_cpp(data_list, sigma_x, sigma_t, gaussian_threshold, m_threshold)
-    
-        particle_output = {}
-        for p in particles:
-            particle_output[p.particle_id] = {
-                'centroid_history': p.centroid_history,  # 重心座標 (x, y)
-                'events': p.events       # 全イベント [(x, y, time), ...]
-            }
-    
-        # インプットファイルと同じディレクトリにpickleファイルを保存
-        output_file = os.path.join(os.path.dirname(file_path), f'particle_tracking_results_both_{os.path.basename(file_path).split(".")[0]}.pkl')
-        with open(output_file, 'wb') as f:
-            pickle.dump(particle_output, f)
-    
-        print(f"Particle tracking results saved to {output_file}")
-    
-    except Exception as e:
-        print("An error occurred during the particle tracking process.")
-        print(f"Error message: {e}")
+    print(f"Results saved to {output_file}")
 
-# インプットがディレクトリの場合、ディレクトリ内の全てのCSVファイルを処理
-if os.path.isdir(input_path):
-    for filename in os.listdir(input_path):
-        if filename.endswith('.csv'):
-            file_path = os.path.join(input_path, filename)
-            process_file(file_path)
-
-# インプットがCSVファイルの場合、そのファイルを処理
-elif os.path.isfile(input_path) and input_path.endswith('.csv'):
+# 指定されたファイルまたはディレクトリを処理
+if os.path.isfile(input_path) and input_path.endswith('.raw'):
     process_file(input_path)
-
+elif os.path.isdir(input_path):
+    for file_name in os.listdir(input_path):
+        if file_name.endswith('.raw'):
+            process_file(os.path.join(input_path, file_name))
 else:
-    print("Invalid input. Please provide a valid CSV file or directory.")
+    print("Invalid input path. Please provide a valid .raw file or directory.")

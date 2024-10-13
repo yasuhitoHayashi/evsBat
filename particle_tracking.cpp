@@ -1,72 +1,91 @@
-#include <pybind11/pybind11.h>
-#include <pybind11/stl.h>
-#include <deque>
+#include <iostream>
+#include <fstream>
 #include <vector>
+#include <deque>
 #include <tuple>
 #include <cmath>
 #include <algorithm>
 #include <limits>
+#include <chrono>
+#include <sstream>
 
-// 粒子追跡の結果を格納するstruct
-struct ParticleResult {
-    int particle_id; // 粒子ID
-    std::vector<std::tuple<float, double, double>> centroid_history;  // (time, centroid_x, centroid_y)
-    std::vector<std::tuple<int, int, float>> events;  // イベントのリスト(x, y, time)
+namespace Metavision {
+namespace Evt3 {
+    // イベントタイプの列挙型
+    enum class EventTypes : uint8_t {
+        EVT_ADDR_Y = 0x0,
+        EVT_ADDR_X = 0x2,
+        VECT_BASE_X = 0x3,
+        VECT_12 = 0x4,
+        VECT_8 = 0x5,
+        EVT_TIME_LOW = 0x6,
+        EVT_TIME_HIGH = 0x8,
+        EXT_TRIGGER = 0xA
+    };
+
+    // 各イベント用の構造体
+    struct RawEvent { uint16_t pad : 12; uint16_t type : 4; };
+    struct RawEventTime { uint16_t time : 12; uint16_t type : 4; };
+    struct RawEventXAddr { uint16_t x : 11; uint16_t pol : 1; uint16_t type : 4; };
+    struct RawEventVect12 { uint16_t valid : 12; uint16_t type : 4; };
+    struct RawEventVect8 { uint16_t valid : 8; uint16_t unused : 4; uint16_t type : 4; };
+    struct RawEventY { uint16_t y : 11; uint16_t orig : 1; uint16_t type : 4; };
+    struct RawEventXBase { uint16_t x : 11; uint16_t pol : 1; uint16_t type : 4; };
+    struct RawEventExtTrigger { uint16_t value : 1; uint16_t unused : 7; uint16_t id : 4; uint16_t type : 4; };
+
+    using timestamp_t = uint64_t;
+
+} // namespace Evt3
+} // namespace Metavision
+
+struct Metadata {
+    int sensor_width = 1280, sensor_height = 720;
 };
 
-// 粒子を追跡・管理するクラス
+struct ParticleResult {
+    int particle_id;
+    std::vector<std::tuple<float, double, double>> centroid_history;
+    std::vector<std::tuple<int, int, float>> events;
+};
+
 class Particle {
 public:
-    int particle_id; // 粒子ID
-    std::deque<std::tuple<int, int, float>> events;  // (x, y, time)イベントのリスト
-    std::deque<std::tuple<int, int, float>> recent_events;  // 重心計算用の最新イベントリスト
-    double centroid_x, centroid_y; // 粒子の現在の重心座標
-    int mass; // 粒子に属するイベントの数
-    std::deque<std::tuple<float, double, double>> centroid_history;  // 重心の履歴のリスト(time, centroid_x, centroid_y)
+    int particle_id;
+    std::deque<std::tuple<int, int, float>> events;
+    std::deque<std::tuple<int, int, float>> recent_events;
+    double centroid_x, centroid_y;
+    int mass;
+    std::deque<std::tuple<float, double, double>> centroid_history;
 
-    // コンストラクタ。Particleクラスの初期化。粒子を新しく生成するときにこれを呼び出し、初期イベントを追加する。
     Particle(int id, int x, int y, float time) : particle_id(id), centroid_x(x), centroid_y(y), mass(1) {
-        events.push_back(std::make_tuple(x, y, time)); // 最初のイベントを追加
-        recent_events.push_back(std::make_tuple(x, y, time));  // 最新イベントに追加
-        centroid_history.push_back(std::make_tuple(time, centroid_x, centroid_y)); // 重心履歴に追加
+        events.push_back(std::make_tuple(x, y, time));
+        recent_events.push_back(std::make_tuple(x, y, time));
+        centroid_history.push_back(std::make_tuple(time, centroid_x, centroid_y));
     }
 
-    // 他の粒子を対象粒子にマージする関数。this粒子にother粒子のイベントを追加し、質量を統合する。
     void merge(const Particle& other) {
-        // 他の粒子のイベントを全て追加
         for (const auto& event : other.events) {
             events.push_back(event);
-            recent_events.push_back(event);  // recent_eventsにも追加
+            recent_events.push_back(event);
         }
-
-        // 質量の統合
         mass += other.mass;
-
-        // 重心の再計算（質量で重み付けした座標平均）
         double total_mass = mass + other.mass;
         centroid_x = (centroid_x * mass + other.centroid_x * other.mass) / total_mass;
         centroid_y = (centroid_y * mass + other.centroid_y * other.mass) / total_mass;
-
-        // 重心の履歴を更新
         if (!recent_events.empty()) {
             float time = std::get<2>(recent_events.back());
             centroid_history.push_back(std::make_tuple(time, centroid_x, centroid_y));
         }
     }
 
-    // 粒子に新しいイベントを追加する関数。重心の計算と履歴の更新も行う。
     void add_event(int x, int y, float time) {
         events.push_back(std::make_tuple(x, y, time));
-        recent_events.push_back(std::make_tuple(x, y, time));  // recent_eventsにも追加
-        mass++; // 質量を増やす
-
-        // 古いイベントの削除 (2000usより古いイベントを削除)
+        recent_events.push_back(std::make_tuple(x, y, time));
+        mass++;
         float cutoff_time = time - 2000.0;
         while (!recent_events.empty() && std::get<2>(recent_events.front()) < cutoff_time) {
             recent_events.pop_front();
         }
-
-        // 重心の再計算。すべてのイベントのx, y座標を合計し、それぞれ平均を取る。
         if (!recent_events.empty()) {
             double sum_x = 0, sum_y = 0;
             for (const auto& event : recent_events) {
@@ -76,25 +95,20 @@ public:
             centroid_x = sum_x / recent_events.size();
             centroid_y = sum_y / recent_events.size();
         }
-
-        // Save the current centroid to history
         centroid_history.push_back(std::make_tuple(time, centroid_x, centroid_y));
     }
 
-    // 粒子がアクティブかどうかを時間と質量に基づいてチェックする関数
     bool is_active(float current_time, int m_threshold) const {
         if (!events.empty() && std::get<2>(events.back()) < current_time - 2000.0) {
-            return mass > m_threshold;  // 直近2000us以内にイベントがない場合は、質量が閾値より大きいかどうかを返す
+            return mass > m_threshold;
         }
-        return true;  // 直近2000us以内にイベントがある場合は常にアクティブ
+        return true;
     }
 
-    // 質量だけでの判断を行う最終的なアクティブチェック関数(最後の時間ステップで、小さい粒子を削除するため)
     bool is_active_final(int m_threshold) const {
         return mass > m_threshold;
     }
 
-    // C++のParticleResultをpythonに返すため、ParticleResultオブジェクトを作成して返す関数
     ParticleResult get_result() const {
         ParticleResult result;
         result.particle_id = particle_id;
@@ -104,110 +118,208 @@ public:
     }
 };
 
-// ガウス分布による距離計算。2つのイベント間の空間的な距離(x, y)と時間的な距離(t)を計算し、ガウス分布に基づくスコアを返す。
-// sigma_xは空間的なガウス分布の標準偏差、sigma_tは時間的なガウス分布の標準偏差。
 double gaussian_distance(int x1, int y1, float t1, int x2, int y2, float t2, double sigma_x, double sigma_t) {
-    double spatial_distance_sq = (x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2);  // 空間的な距離の2乗
-    double time_distance_sq = (t1 - t2) * (t1 - t2);  // 時間的な距離の2乗
-    return std::exp(-spatial_distance_sq / (2 * sigma_x * sigma_x) - time_distance_sq / (2 * sigma_t * sigma_t));  // ガウス分布に基づくスコア。1に近いほど、時空間的にイベントが近接している。
+    double spatial_distance_sq = (x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2);
+    double time_distance_sq = (t1 - t2) * (t1 - t2);
+    return std::exp(-spatial_distance_sq / (2 * sigma_x * sigma_x) - time_distance_sq / (2 * sigma_t * sigma_t));
 }
 
-// イベントベースの粒子追跡アルゴリズム。イベントデータを受け取り、粒子を追跡して、最終的な粒子リストを返す。
-std::vector<ParticleResult> track_particles_cpp(const std::vector<std::tuple<int, int, float>>& data, double sigma_x, double sigma_t, double gaussian_threshold, int m_threshold) {
-    // 空の粒子ベクトルを作成
-    std::vector<Particle> particles;
-    int particle_id_counter = 0; // 粒子idのカウンターリセット
+void process_event(int x, int y, int polarity, Metavision::Evt3::timestamp_t timestamp, 
+                   std::vector<Particle>& particles, int& particle_id_counter,
+                   double sigma_x, double sigma_t, double gaussian_threshold, int m_threshold) {
+    float time = static_cast<float>(timestamp);
 
-    // データ内の各イベントに対して粒子追跡を実行
-    for (const auto& event : data) {
-        // イベントのx, y, timeを取得
-        int x = std::get<0>(event);
-        int y = std::get<1>(event);
-        float time = std::get<2>(event);
+    bool found_overlap = false;
+    size_t overlapping_particle_index = std::numeric_limits<size_t>::max();
 
-        // 既存の粒子に新たなイベントを追加するかをチェック
-        bool found_overlap = false;
-        size_t overlapping_particle_index = std::numeric_limits<size_t>::max(); //既存粒子との重なりがある場合、インデックスを格納
-
-        // すべての粒子(を構成するイベント)と新たなイベントの距離を計算し、重なりがあるかどうかをチェック
-        for (size_t i = 0; i < particles.size(); ++i) {
-            Particle& particle = particles[i];
-
-            // 粒子を構成するイベントのうち最新のイベントリストをループし、新しいイベントとの距離を計算
-            for (const auto& recent_event : particle.recent_events) {
-                // ガウス分布に基づいた距離を計算
-                double gaussian_score = gaussian_distance(x, y, time, std::get<0>(recent_event), std::get<1>(recent_event), std::get<2>(recent_event), sigma_x, sigma_t);
-
-                // スコアが閾値を超えた場合にイベントのインデックスを追加
-                if (gaussian_score >= gaussian_threshold) {
-                    particle.add_event(x, y, time);
-                    found_overlap = true;
-                    overlapping_particle_index = i;
-                    break;
-                }
-            }
-            if (found_overlap) {
+    for (size_t i = 0; i < particles.size(); ++i) {
+        Particle& particle = particles[i];
+        for (const auto& recent_event : particle.recent_events) {
+            double gaussian_score = gaussian_distance(x, y, time, std::get<0>(recent_event), std::get<1>(recent_event), std::get<2>(recent_event), sigma_x, sigma_t);
+            if (gaussian_score >= gaussian_threshold) {
+                particle.add_event(x, y, time);
+                found_overlap = true;
+                overlapping_particle_index = i;
                 break;
             }
         }
+        if (found_overlap) break;
+    }
 
-        // もし、どの粒子とも重なりがない場合、新しい粒子を作成
-        if (!found_overlap) {
-            particle_id_counter++; // 粒子IDに1を追加
-            Particle new_particle(particle_id_counter, x, y, time);
-            particles.push_back(new_particle);
-        // 重なりがある場合、重なりがある粒子をマージ
-        } else if (overlapping_particle_index != std::numeric_limits<size_t>::max()) {
-            // あるイベントが複数の粒子と重なっている場合、2つの粒子の直近のイベントを比較し、重なりがあるかどうかをチェック。閾値を超えた場合、粒子をマージ
-            for (size_t i = 0; i < particles.size(); ++i) {
-                if (i != overlapping_particle_index) {
-                    Particle& particle = particles[i];
+    if (!found_overlap) {
+        particle_id_counter++;
+        Particle new_particle(particle_id_counter, x, y, time);
+        particles.push_back(new_particle);
+    } else if (overlapping_particle_index != std::numeric_limits<size_t>::max()) {
+        for (size_t i = 0; i < particles.size(); ++i) {
+            if (i != overlapping_particle_index) {
+                Particle& particle = particles[i];
+                for (const auto& recent_event : particle.recent_events) {
+                    double gaussian_score = gaussian_distance(
+                        std::get<0>(particles[overlapping_particle_index].recent_events.back()),
+                        std::get<1>(particles[overlapping_particle_index].recent_events.back()),
+                        std::get<2>(particles[overlapping_particle_index].recent_events.back()),
+                        std::get<0>(recent_event),
+                        std::get<1>(recent_event),
+                        std::get<2>(recent_event),
+                        sigma_x, sigma_t);
 
-                    // ガウス分布に基づく距離計算で、同じ条件で2つの粒子が重なっているかチェック
-                    for (const auto& recent_event : particle.recent_events) {
-                        double gaussian_score = gaussian_distance(
-                            std::get<0>(particles[overlapping_particle_index].recent_events.back()),
-                            std::get<1>(particles[overlapping_particle_index].recent_events.back()),
-                            std::get<2>(particles[overlapping_particle_index].recent_events.back()),
-                            std::get<0>(recent_event),
-                            std::get<1>(recent_event),
-                            std::get<2>(recent_event),
-                            sigma_x, sigma_t);
-
-                        if (gaussian_score >= gaussian_threshold) {
-                            // 粒子をマージ
-                            particles[overlapping_particle_index].merge(particle);
-                            particles.erase(particles.begin() + i);  // Merge後、消す
-                            break;
-                        }
+                    if (gaussian_score >= gaussian_threshold) {
+                        particles[overlapping_particle_index].merge(particle);
+                        particles.erase(particles.begin() + i);
+                        break;
                     }
                 }
             }
         }
-
-        // 最後のイベントから2000ms以上経過し、質量が閾値より小さい場合、粒子を削除
-        particles.erase(std::remove_if(particles.begin(), particles.end(),
-            [time, m_threshold](const Particle& p) { return !p.is_active(time, m_threshold); }), particles.end());
     }
 
-    // 最後の時間ステップで、質量が閾値より小さい粒子を削除
     particles.erase(std::remove_if(particles.begin(), particles.end(),
-        [m_threshold](const Particle& p) { return !p.is_active_final(m_threshold); }), particles.end());
+        [time, m_threshold](const Particle& p) { return !p.is_active(time, m_threshold); }), particles.end());
+}
 
-    // 結果を返す
+int main(int argc, char *argv[]) {
+    if (argc < 2) {
+        std::cerr << "Error : need input filename" << std::endl;
+        return 1;
+    }
+
+    std::ifstream input_file(argv[1], std::ios::in | std::ios::binary);
+    if (!input_file.is_open()) {
+        std::cerr << "Error : could not open file '" << argv[1] << "' for reading" << std::endl;
+        return 1;
+    }
+
+    Metadata metadata;
+    while (input_file.peek() == '%') {
+        std::string header_line;
+        std::getline(input_file, header_line);
+        if (header_line.substr(0, 11) == "% geometry ") {
+            std::istringstream sg(header_line.substr(11));
+            std::string sw, sh;
+            std::getline(sg, sw, 'x');
+            std::getline(sg, sh);
+            metadata.sensor_width  = std::stoi(sw);
+            metadata.sensor_height = std::stoi(sh);
+        }
+    }
+
+    const auto tp_start = std::chrono::system_clock::now();
+    static constexpr uint32_t WORDS_TO_READ = 1000000;
+    std::vector<Metavision::Evt3::RawEvent> buffer_read(WORDS_TO_READ);
+
+    std::vector<Particle> particles;
+    int particle_id_counter = 0;
+    double sigma_x = 5.0, sigma_t = 200.0, gaussian_threshold = 0.5;
+    int m_threshold = 10;
+
+    bool first_time_base_set = false;
+    Metavision::Evt3::timestamp_t current_time_base = 0, current_time = 0, current_time_low = 0;
+    uint16_t current_ev_addr_y = 0, current_base_x = 0, current_polarity = 0;
+    unsigned int n_time_high_loop = 0;
+
+    while (input_file) {
+        input_file.read(reinterpret_cast<char *>(buffer_read.data()), WORDS_TO_READ * sizeof(Metavision::Evt3::RawEvent));
+        Metavision::Evt3::RawEvent *current_word = buffer_read.data();
+        Metavision::Evt3::RawEvent *last_word = current_word + input_file.gcount() / sizeof(Metavision::Evt3::RawEvent);
+
+        for (; !first_time_base_set && current_word != last_word; ++current_word) {
+            Metavision::Evt3::EventTypes type = static_cast<Metavision::Evt3::EventTypes>(current_word->type);
+            if (type == Metavision::Evt3::EventTypes::EVT_TIME_HIGH) {
+                auto *ev_timehigh = reinterpret_cast<Metavision::Evt3::RawEventTime *>(current_word);
+                current_time_base = (Metavision::Evt3::timestamp_t(ev_timehigh->time) << 12);
+                first_time_base_set = true;
+                break;
+            }
+        }
+
+        for (; current_word != last_word; ++current_word) {
+            Metavision::Evt3::EventTypes type = static_cast<Metavision::Evt3::EventTypes>(current_word->type);
+            switch (type) {
+                case Metavision::Evt3::EventTypes::EVT_ADDR_X: {
+                    auto *ev_addr_x = reinterpret_cast<Metavision::Evt3::RawEventXAddr *>(current_word);
+                    process_event(ev_addr_x->x, current_ev_addr_y, ev_addr_x->pol, current_time,
+                                  particles, particle_id_counter, sigma_x, sigma_t, gaussian_threshold, m_threshold);
+                    break;
+                }
+                case Metavision::Evt3::EventTypes::VECT_12: {
+                    uint16_t end = current_base_x + 12;
+                    auto *ev_vec_12 = reinterpret_cast<Metavision::Evt3::RawEventVect12 *>(current_word);
+                    uint32_t valid = ev_vec_12->valid;
+                    for (uint16_t i = current_base_x; i != end; ++i) {
+                        if (valid & 0x1) {
+                            process_event(i, current_ev_addr_y, current_polarity, current_time,
+                                          particles, particle_id_counter, sigma_x, sigma_t, gaussian_threshold, m_threshold);
+                        }
+                        valid >>= 1;
+                    }
+                    current_base_x = end;
+                    break;
+                }
+                case Metavision::Evt3::EventTypes::VECT_8: {
+                    uint16_t end = current_base_x + 8;
+                    auto *ev_vec_8 = reinterpret_cast<Metavision::Evt3::RawEventVect8 *>(current_word);
+                    uint32_t valid = ev_vec_8->valid;
+                    for (uint16_t i = current_base_x; i != end; ++i) {
+                        if (valid & 0x1) {
+                            process_event(i, current_ev_addr_y, current_polarity, current_time,
+                                          particles, particle_id_counter, sigma_x, sigma_t, gaussian_threshold, m_threshold);
+                        }
+                        valid >>= 1;
+                    }
+                    current_base_x = end;
+                    break;
+                }
+                case Metavision::Evt3::EventTypes::EVT_ADDR_Y: {
+                    auto *ev_addr_y = reinterpret_cast<Metavision::Evt3::RawEventY *>(current_word);
+                    current_ev_addr_y = ev_addr_y->y;
+                    break;
+                }
+                case Metavision::Evt3::EventTypes::VECT_BASE_X: {
+                    auto *ev_xbase = reinterpret_cast<Metavision::Evt3::RawEventXBase *>(current_word);
+                    current_polarity = ev_xbase->pol;
+                    current_base_x = ev_xbase->x;
+                    break;
+                }
+                case Metavision::Evt3::EventTypes::EVT_TIME_HIGH: {
+                    static constexpr Metavision::Evt3::timestamp_t MaxTimestampBase = ((Metavision::Evt3::timestamp_t(1) << 12) - 1) << 12;
+                    static constexpr Metavision::Evt3::timestamp_t TimeLoop = MaxTimestampBase + (1 << 12);
+                    static constexpr Metavision::Evt3::timestamp_t LoopThreshold = (10 << 12);
+
+                    auto *ev_timehigh = reinterpret_cast<Metavision::Evt3::RawEventTime *>(current_word);
+                    Metavision::Evt3::timestamp_t new_time_base = (Metavision::Evt3::timestamp_t(ev_timehigh->time) << 12);
+                    new_time_base += n_time_high_loop * TimeLoop;
+
+                    if ((current_time_base > new_time_base) &&
+                        (current_time_base - new_time_base >= MaxTimestampBase - LoopThreshold)) {
+                        new_time_base += TimeLoop;
+                        ++n_time_high_loop;
+                    }
+
+                    current_time_base = new_time_base;
+                    current_time = current_time_base;
+                    break;
+                }
+                case Metavision::Evt3::EventTypes::EVT_TIME_LOW: {
+                    auto *ev_timelow = reinterpret_cast<Metavision::Evt3::RawEventTime *>(current_word);
+                    current_time_low = ev_timelow->time;
+                    current_time = current_time_base + current_time_low;
+                    break;
+                }
+                default:
+                    break;
+            }
+        }
+    }
+
+    const auto tp_end = std::chrono::system_clock::now();
+    const double duration_s = std::chrono::duration_cast<std::chrono::microseconds>(tp_end - tp_start).count() / 1e6;
+
     std::vector<ParticleResult> results;
     for (const auto& particle : particles) {
         results.push_back(particle.get_result());
     }
+    std::cout << "Processed in " << duration_s << " s" << std::endl;
 
-    return results;
-}
-
-PYBIND11_MODULE(particle_tracking, m) {
-    pybind11::class_<ParticleResult>(m, "ParticleResult")
-        .def_readonly("particle_id", &ParticleResult::particle_id)
-        .def_readonly("centroid_history", &ParticleResult::centroid_history)
-        .def_readonly("events", &ParticleResult::events);
-
-    m.def("track_particles_cpp", &track_particles_cpp, "Track particles in C++");
+    return 0;
 }
