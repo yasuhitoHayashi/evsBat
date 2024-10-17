@@ -6,10 +6,14 @@ from mpl_toolkits.mplot3d import Axes3D
 import argparse
 
 parser = argparse.ArgumentParser(description='Particle tracking script.')
-parser.add_argument('-i', '--input', required=True, help='Path to the input CSV file.')
+parser.add_argument('-i', '--input', help='Path to the input pickle file.')
 args = parser.parse_args()
 
-particle_output_file = args.input
+# -iオプションが指定されていない場合のデフォルトファイル
+default_file_path = './sampleData/particle_tracking_results_recording_2023-09-14_20-42-19_39.pkl'
+
+# 入力ファイルパスの設定
+particle_output_file = args.input if args.input else default_file_path
 
 with open(particle_output_file, 'rb') as f:
     particle_data = pickle.load(f)
@@ -65,5 +69,10 @@ ax.set_xlabel('Time (milliseconds)')
 #ax.set_xlim([0, 1000])
 ax.set_ylim([0, 1280])
 ax.set_zlim([720, 0])
+
+# 視点の設定
+elev = 10  # 仰角（デフォルトは30度）
+azim = -75  # 方位角（デフォルトは45度）
+ax.view_init(elev=elev, azim=azim)
 
 plt.show()
