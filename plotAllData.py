@@ -138,3 +138,6 @@ ax2.view_init(elev=30, azim=-70)
 ax3.view_init(elev=20, azim=-50)
 
 plt.show()
+
+#plt.savefig("./sampleData/plotAllData.png")
+#plt.close()
