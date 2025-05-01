@@ -16,7 +16,7 @@ def peak_detection(fft_amplitude, fft_freq):
     min_area_idx = filter_idx[0][0]
     # ピークを見つける
     peaks, _ = find_peaks(
-        fft_amplitude, height=np.max(fft_amplitude) * 0.95
+        fft_amplitude, height=np.max(fft_amplitude) * 0.85
     )  # 10% threshold for peaks
 
     peak_heights = fft_amplitude[peaks]
