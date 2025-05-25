@@ -22,10 +22,10 @@ parser.add_argument(
 )
 args = parser.parse_args()
 input_path = args.input
-# FOLDERS = ["momojiro"]
-# DATA_LABELS = [
-#     "$Myotis\\ macrodactylus$",
-# ]
+FOLDERS = ["momojiro"]
+DATA_LABELS = [
+    "$Myotis\\ macrodactylus$",
+]
 
 # FOLDERS = ["kiku", "yubi", "momojiro"]
 # DATA_LABELS = [
@@ -33,10 +33,6 @@ input_path = args.input
 #     "$Miniopterus\\ fuliginosus$",
 #     "$Myotis\\ macrodactylus$",
 # ]
-FOLDERS = ["move_objects"]
-DATA_LABELS = [
-    "$moveing\\ objects$",
-]
 
 
 def read_pickles(input_path, folder_name):
@@ -82,6 +78,24 @@ def process_pickle_file(particle_output_file):
     # 各時間ビンでのイベント数を計算
     event_counts, _ = np.histogram(event_times, bins=time_bins)
 
+    return event_counts
+
+
+def calc_fft(target_arr):
+    preprocessed_series = preprocess_time_series(target_arr)
+    padded_series = pad_time_series(preprocessed_series)
+    freqs, fft_magnitude = compute_fft(padded_series)
+
+    return freqs, fft_magnitude
+
+
+def calc_peak(freqs, values):
+    peak_indices, max_peak_idx = peak_detection(values, freqs)
+    # peak_indices = custom_peak_detection(values, freqs)
+
+    return peak_indices, max_peak_idx
+
+
 if os.path.isdir(input_path):
     # ディレクトリ内のすべてのファイルを処理
     all_peak_freqs = []
@@ -92,6 +106,7 @@ if os.path.isdir(input_path):
         event_num_list = []
         folder_peak_freqs = []
         folder_file_names = []
+        stft_peak_list = []
         for pkl_data in pickle_list:
             base_name = os.path.basename(pkl_data)
             print(f"Processing file: {base_name}")
@@ -100,13 +115,11 @@ if os.path.isdir(input_path):
             peak_indices, max_peak_idx = calc_peak(freqs, fft_magnitude)
             if len(peak_indices) == 0:
                 event_num_list.append(event_num_arr)
-                folder_peak_freqs.append(np.nan)
-                folder_file_names.extend([base_name])
             else:
                 peak_freqs = freqs[peak_indices]
                 max_peak_freq = freqs[max_peak_idx]
                 peak_freqs = detect_wingfreq(peak_freqs, max_peak_freq)
-                folder_peak_freqs.append(round(peak_freqs, 1))
+                folder_peak_freqs.append(peak_freqs)
                 folder_file_names.extend([base_name])
                 event_num_list.append(event_num_arr)
 
@@ -118,8 +131,14 @@ if os.path.isdir(input_path):
         output_pdf_path = os.path.join(
             input_path, f"{folder_name}_analysis.pdf"
         )
+        output_stft_pdf_path = os.path.join(
+            input_path, f"{folder_name}_stft.pdf"
+        )
         plot_and_save_time_series_fft_to_pdf(
-            folder_name, event_num_list, folder_file_names, output_pdf_path
+            folder_name, event_num_list, output_pdf_path
+        )
+        plot_and_save_time_series_stft_to_pdf(
+            folder_name, event_num_list, output_stft_pdf_path
         )
 
     # バイオリンプロットを1つのPDFに保存
@@ -130,7 +149,6 @@ if os.path.isdir(input_path):
     df_peak_freqs = pd.DataFrame(
         dict([(k, pd.Series(v)) for k, v in dict_peak_freqs.items()])
     )
-    print(df_peak_freqs)
     df_file_names = pd.DataFrame(
         dict([(k + "_file", pd.Series(v)) for k, v in dict_file_names.items()])
     )
