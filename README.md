@@ -25,7 +25,6 @@ In post-analysis, frequency analysis of the variations in event count is also po
 │   ├── particle_tracking_results_recording_2023-09-14_20-42-19_39.pkl
 │   └── fftAnalysis.png
 ├── particle_tracking.cpp       # Handles event-based particle tracking in C++
-├── peak_collection.py        # Collects peak frequency data from multiple txt files and generates violin plots
 ├── plotAllData.py          # Plotting script for All data
 ├── plotEventCountFFT.py      # Performs FFT analysis on event count variations using a Hamming window
 ├── plotTrajectory.py          # Plots trajectory data from tracked events
