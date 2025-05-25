@@ -82,24 +82,6 @@ def process_pickle_file(particle_output_file):
     # 各時間ビンでのイベント数を計算
     event_counts, _ = np.histogram(event_times, bins=time_bins)
 
-    return event_counts
-
-
-def calc_fft(target_arr):
-    preprocessed_series = preprocess_time_series(target_arr)
-    padded_series = pad_time_series(preprocessed_series)
-    freqs, fft_magnitude = compute_fft(padded_series)
-
-    return freqs, fft_magnitude
-
-
-def calc_peak(freqs, values):
-    peak_indices, max_peak_idx = peak_detection(values, freqs)
-    # peak_indices = custom_peak_detection(values, freqs)
-
-    return peak_indices, max_peak_idx
-
-
 if os.path.isdir(input_path):
     # ディレクトリ内のすべてのファイルを処理
     all_peak_freqs = []
