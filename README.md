@@ -27,11 +27,13 @@ In post-analysis, frequency analysis of the variations in event count is also po
 ├── particle_tracking.cpp       # Handles event-based particle tracking in C++
 ├── peak_collection.py        # Collects peak frequency data from multiple txt files and generates violin plots
 ├── plotAllData.py          # Plotting script for All data
-├── plotEventCountFFT_Window.py      # Performs FFT analysis on event count variations using a Hamming window
+├── plotEventCountFFT.py      # Performs FFT analysis on event count variations using a Hamming window
 ├── plotTrajectory.py          # Plots trajectory data from tracked events
-├── pngToPDF.py                 # Converts PNG images of plots into a single PDF
 ├── setup.py                 #  Script for building the C++ code for particle tracking
 ├── trackParticlesC.py                 # Prticle tracking code
+├── detect_peaks.py             # Utility for detecting peaks in FFT data
+├── process_fft.py              # Helper functions for FFT processing
+├── time_fft_to_pdf.py          # Converts time-domain FFT results to a PDF
 └── README.md                 # Project documentation (this file)
 ```
 
@@ -56,18 +58,11 @@ Reads particle tracking data from a pickle file and plots the centroid trajector
 #### Arguments
 - -i Path to the input CSV file.
 
-### plotEventCountFFT_Window.py
+### plotEventCountFFT.py
 Performs FFT analysis on event count variations from particle tracking data. The script processes pickle files generated from tracking data and calculates the event counts over time. It then applies FFT to the event counts, identifies peaks in the frequency domain, and saves both the peak data and corresponding FFT plots. The results are output in both text and PNG formats for further analysis.
 
 #### Arguments
 - -i Path to the input pickle file or directory.
-
-### peak_collection.py
-Collects peak frequency data from multiple .txt files, optionally filters them based on specific identifiers (abura, kiku, momoziro, yubi), and generates violin plots to visualize the frequency distribution.
-
-#### Arguments
-- -i Input directory containing .txt files.
-- -A Process all files regardless of their file names.
 
 ## License
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
