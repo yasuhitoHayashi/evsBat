@@ -20,6 +20,10 @@ In post-analysis, frequency analysis of the variations in event count is also po
 ## Project Structure
 ```bash
 .
+├── sampleData/                    # Example CSV / PKL / PNG assets
+│   ├── recording_2023-09-14_20-42-19_39.csv
+│   ├── particle_tracking_results_recording_2023-09-14_20-42-19_39.pkl
+│   └── fftAnalysis.png
 ├── particle_tracking.cpp       # Handles event-based particle tracking in C++
 ├── peak_collection.py        # Collects peak frequency data from multiple txt files and generates violin plots
 ├── plotAllData.py          # Plotting script for All data
@@ -64,13 +68,6 @@ Collects peak frequency data from multiple .txt files, optionally filters them b
 #### Arguments
 - -i Input directory containing .txt files.
 - -A Process all files regardless of their file names.
-
-### pngToPDF.py
-Converts multiple PNG images of plots into a single PDF. The resulting PDFs are saved in a pdf_results folder within the input directory.
-
-#### Arguments
-- -i Input directory containing .png files.
-- -A Process all .png files regardless of filenames.
 
 ## License
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
