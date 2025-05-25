@@ -71,3 +71,6 @@ Converts multiple PNG images of plots into a single PDF. The resulting PDFs are 
 #### Arguments
 - -i Input directory containing .png files.
 - -A Process all .png files regardless of filenames.
+
+## License
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
