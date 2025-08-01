@@ -10,23 +10,23 @@ parser = argparse.ArgumentParser(description='Particle tracking script.')
 parser.add_argument('-i', '--input', required=True, help='Path to the input pickle file or directory.')
 args = parser.parse_args()
 
-# イベント数の閾値
+# Threshold for number of events
 event_threshold = 1000
 
-# プロット用にイベントを抽出
+# Ratio for sampling events for plotting
 sampling_ratio = 0.1
 
-# イベントをプロットするか否かのフラグ  
-plot_events = True  # Falseにすることで、重心のみをプロット
+# Flag to determine whether to plot events  
+plot_events = True  # Set to False to plot only centroids
 
 def process_pickle_file(particle_output_file):
     output_directory = os.path.dirname(particle_output_file)
     
-    # 出力フォルダ (fft_results) を作成
+    # Create output folder (fft_results)
     fft_results_dir = os.path.join(output_directory, 'plotTrajectory_results')
-    os.makedirs(fft_results_dir, exist_ok=True)  # 既に存在していてもエラーを出さない
+    os.makedirs(fft_results_dir, exist_ok=True)  # Do not raise error if it already exists
     
-    # ファイル名の処理: 前から3つ目の "_" より後の部分を使い、".pkl"を除去
+    # Process the file name: use the part after the third "_" from the beginning and remove ".pkl"
     base_filename = os.path.basename(particle_output_file)
     base_filename = '_'.join(base_filename.split('_')[3:]).replace('.pkl', '')
 
@@ -37,23 +37,23 @@ def process_pickle_file(particle_output_file):
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
 
-    # 粒子の軌跡とイベントをプロット
+    # Plot particle trajectories and events
     for particle_id, particle_info in particle_data.items():
         if 'centroid_history' in particle_info:
             centroid_history = np.array(particle_info['centroid_history'])  # (time, centroid_x, centroid_y)
 
-            # 重心の履歴、1以上あるかどうか
+            # Check if there is at least one centroid in the history
             if len(centroid_history) > 1:
-                # 重心の軌跡をプロット
+                # Plot the trajectory of the centroid
                 ax.plot(centroid_history[:, 0] * 1e-3, centroid_history[:, 1], centroid_history[:, 2], label=f'Particle {particle_id} Centroid Trajectory')
 
-        # フラグがTrueの場合、イベントをプロット
+        # If the flag is True, plot the events
         if plot_events:
             events = particle_info['events']
             event_coords = np.array(events)
             event_times = event_coords[:, 2] * 1e-3  # Convert event times to milliseconds
 
-            # 描画のためのダウンサンプリング
+            # Downsample for visualization
             num_events = len(events)
             if sampling_ratio < 1.0:
                 sample_size = int(num_events * sampling_ratio)
@@ -65,7 +65,7 @@ def process_pickle_file(particle_output_file):
                     # Scatter plot
                     ax.scatter(sampled_event_times, sampled_events[:, 0], sampled_events[:, 1], alpha=0.3, marker='.')
             else:
-                # ダウンサンプリングしない場合
+                # If not downsampling
                 ax.scatter(event_times, event_coords[:, 0], event_coords[:, 1], alpha=0.3, marker='.')
 
     ax.set_ylabel('X Coordinate')
@@ -85,14 +85,14 @@ def process_pickle_file(particle_output_file):
 input_path = args.input
 
 if os.path.isdir(input_path):
-    # ディレクトリ内のすべてのファイルを処理
+    # Process all files in the directory
     for filename in os.listdir(input_path):
         if filename.endswith('.pkl'):
             file_path = os.path.join(input_path, filename)
             print(f"Processing file: {file_path}")
             process_pickle_file(file_path)
 elif os.path.isfile(input_path) and input_path.endswith('.pkl'):
-    # 単一ファイルを処理
+    # Process a single file
     print(f"Processing file: {input_path}")
     process_pickle_file(input_path)
 else:
