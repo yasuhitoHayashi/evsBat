@@ -7,66 +7,66 @@
 #include <algorithm>
 #include <limits>
 
-// 粒子追跡の結果を格納するstruct
+// Struct to store the result of particle tracking
 struct ParticleResult {
-    int particle_id; // 粒子ID
-    std::vector<std::tuple<float, double, double>> centroid_history;  // (time, centroid_x, centroid_y)
-    std::vector<std::tuple<int, int, float>> events;  // イベントのリスト(x, y, time)
+    int particle_id; // Particle ID
+    std::vector<std::tuple<float, double, double>> centroid_history;  // History of centroids(time, centroid_x, centroid_y)
+    std::vector<std::tuple<int, int, float>> events;  // List of events(x, y, time)
 };
 
-// 粒子を追跡・管理するクラス
+// Class to track and manage particles
 class Particle {
 public:
-    int particle_id; // 粒子ID
-    std::deque<std::tuple<int, int, float>> events;  // (x, y, time)イベントのリスト
-    std::deque<std::tuple<int, int, float>> recent_events;  // 重心計算用の最新イベントリスト
-    double centroid_x, centroid_y; // 粒子の現在の重心座標
-    int mass; // 粒子に属するイベントの数
-    std::deque<std::tuple<float, double, double>> centroid_history;  // 重心の履歴のリスト(time, centroid_x, centroid_y)
+    int particle_id; // Particle ID
+    std::deque<std::tuple<int, int, float>> events;  // List of events: (x, y, time)
+    std::deque<std::tuple<int, int, float>> recent_events;  // Recent events for centroid calculation
+    double centroid_x, centroid_y; // Current centroid coordinates of the particle
+    int mass; // Number of events belonging to the particle
+    std::deque<std::tuple<float, double, double>> centroid_history;  // History of centroids(time, centroid_x, centroid_y)
 
-    // コンストラクタ。Particleクラスの初期化。粒子を新しく生成するときにこれを呼び出し、初期イベントを追加する。
+    // Constructor. Initializes a Particle. Called when creating a new particle and adds the initial event.
     Particle(int id, int x, int y, float time) : particle_id(id), centroid_x(x), centroid_y(y), mass(1) {
-        events.push_back(std::make_tuple(x, y, time)); // 最初のイベントを追加
-        recent_events.push_back(std::make_tuple(x, y, time));  // 最新イベントに追加
-        centroid_history.push_back(std::make_tuple(time, centroid_x, centroid_y)); // 重心履歴に追加
+        events.push_back(std::make_tuple(x, y, time)); // Add the initial event
+        recent_events.push_back(std::make_tuple(x, y, time));  // Add to recent events
+        centroid_history.push_back(std::make_tuple(time, centroid_x, centroid_y)); // Add to centroid history
     }
 
-    // 他の粒子を対象粒子にマージする関数。this粒子にother粒子のイベントを追加し、質量を統合する。
+    // Function to merge another particle into this particle. Adds the events of the other particle and integrates mass.
     void merge(const Particle& other) {
-        // 他の粒子のイベントを全て追加
+        // Add all events from the other particle
         for (const auto& event : other.events) {
             events.push_back(event);
-            recent_events.push_back(event);  // recent_eventsにも追加
+            recent_events.push_back(event);  // Also add to recent_events
         }
 
-        // 質量の統合
+        // Merge mass
         mass += other.mass;
 
-        // 重心の再計算（質量で重み付けした座標平均）
+        // Recalculate centroid (weighted average based on mass)
         double total_mass = mass + other.mass;
         centroid_x = (centroid_x * mass + other.centroid_x * other.mass) / total_mass;
         centroid_y = (centroid_y * mass + other.centroid_y * other.mass) / total_mass;
 
-        // 重心の履歴を更新
+        // Update centroid history
         if (!recent_events.empty()) {
             float time = std::get<2>(recent_events.back());
             centroid_history.push_back(std::make_tuple(time, centroid_x, centroid_y));
         }
     }
 
-    // 粒子に新しいイベントを追加する関数。重心の計算と履歴の更新も行う。
+    // Function to add a new event to a particle. Also updates centroid and history.
     void add_event(int x, int y, float time) {
         events.push_back(std::make_tuple(x, y, time));
-        recent_events.push_back(std::make_tuple(x, y, time));  // recent_eventsにも追加
-        mass++; // 質量を増やす
+        recent_events.push_back(std::make_tuple(x, y, time));  // Also add to recent_events
+        mass++; // Increase mass
 
-        // 古いイベントの削除 (2000usより古いイベントを削除)
+        // Remove old events (remove events older than 2000us)
         float cutoff_time = time - 2000.0;
         while (!recent_events.empty() && std::get<2>(recent_events.front()) < cutoff_time) {
             recent_events.pop_front();
         }
 
-        // 重心の再計算。すべてのイベントのx, y座標を合計し、それぞれ平均を取る。
+        // Recalculate centroid by averaging x and y of all events
         if (!recent_events.empty()) {
             double sum_x = 0, sum_y = 0;
             for (const auto& event : recent_events) {
@@ -81,20 +81,20 @@ public:
         centroid_history.push_back(std::make_tuple(time, centroid_x, centroid_y));
     }
 
-    // 粒子がアクティブかどうかを時間と質量に基づいてチェックする関数
+    // Function to check if a particle is active based on time and mass
     bool is_active(float current_time, int m_threshold) const {
         if (!events.empty() && std::get<2>(events.back()) < current_time - 2000.0) {
-            return mass > m_threshold;  // 直近2000us以内にイベントがない場合は、質量が閾値より大きいかどうかを返す
+            return mass > m_threshold;  // If no event exists within the last 2000us, return whether mass exceeds threshold
         }
-        return true;  // 直近2000us以内にイベントがある場合は常にアクティブ
+        return true;  // If there is an event within 2000us, always active
     }
 
-    // 質量だけでの判断を行う最終的なアクティブチェック関数(最後の時間ステップで、小さい粒子を削除するため)
+    // Final active check function based only on mass (used to remove small particles at the last time step)
     bool is_active_final(int m_threshold) const {
         return mass > m_threshold;
     }
 
-    // C++のParticleResultをpythonに返すため、ParticleResultオブジェクトを作成して返す関数
+    // Function to convert Particle into a ParticleResult object to be returned to Python
     ParticleResult get_result() const {
         ParticleResult result;
         result.particle_id = particle_id;
@@ -104,41 +104,41 @@ public:
     }
 };
 
-// ガウス分布による距離計算。2つのイベント間の空間的な距離(x, y)と時間的な距離(t)を計算し、ガウス分布に基づくスコアを返す。
-// sigma_xは空間的なガウス分布の標準偏差、sigma_tは時間的なガウス分布の標準偏差。
+// Gaussian distance calculation. Computes spatial (x, y) and temporal (t) distance between two events and returns a score based on a Gaussian distribution.
+// sigma_x is the spatial standard deviation of the Gaussian distribution, and sigma_t is the temporal standard deviation.
 double gaussian_distance(int x1, int y1, float t1, int x2, int y2, float t2, double sigma_x, double sigma_t) {
-    double spatial_distance_sq = (x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2);  // 空間的な距離の2乗
-    double time_distance_sq = (t1 - t2) * (t1 - t2);  // 時間的な距離の2乗
-    return std::exp(-spatial_distance_sq / (2 * sigma_x * sigma_x) - time_distance_sq / (2 * sigma_t * sigma_t));  // ガウス分布に基づくスコア。1に近いほど、時空間的にイベントが近接している。
+    double spatial_distance_sq = (x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2);  // // Spatial distance squared
+    double time_distance_sq = (t1 - t2) * (t1 - t2);  // Temporal distance squared
+    return std::exp(-spatial_distance_sq / (2 * sigma_x * sigma_x) - time_distance_sq / (2 * sigma_t * sigma_t));  // Score based on Gaussian distribution. Closer to 1 means events are closer in space-time.
 }
 
-// イベントベースの粒子追跡アルゴリズム。イベントデータを受け取り、粒子を追跡して、最終的な粒子リストを返す。
+// Event-based particle tracking algorithm. Takes in event data, tracks particles, and returns a final list of particles.
 std::vector<ParticleResult> track_particles_cpp(const std::vector<std::tuple<int, int, float>>& data, double sigma_x, double sigma_t, double gaussian_threshold, int m_threshold) {
-    // 空の粒子ベクトルを作成
+    // Create empty particle vector
     std::vector<Particle> particles;
-    int particle_id_counter = 0; // 粒子idのカウンターリセット
+    int particle_id_counter = 0; // Reset particle ID counter
 
-    // データ内の各イベントに対して粒子追跡を実行
+    // Perform particle tracking for each event in the data
     for (const auto& event : data) {
-        // イベントのx, y, timeを取得
+        // Retrieve x, y, time from the event
         int x = std::get<0>(event);
         int y = std::get<1>(event);
         float time = std::get<2>(event);
 
-        // 既存の粒子に新たなイベントを追加するかをチェック
+        // Check whether the new event should be added to an existing particle
         bool found_overlap = false;
-        size_t overlapping_particle_index = std::numeric_limits<size_t>::max(); //既存粒子との重なりがある場合、インデックスを格納
+        size_t overlapping_particle_index = std::numeric_limits<size_t>::max(); //If overlap with existing particle found, store the index
 
-        // すべての粒子(を構成するイベント)と新たなイベントの距離を計算し、重なりがあるかどうかをチェック
+        // For each particle (and its events), calculate distance from the new event to check for overlap
         for (size_t i = 0; i < particles.size(); ++i) {
             Particle& particle = particles[i];
 
-            // 粒子を構成するイベントのうち最新のイベントリストをループし、新しいイベントとの距離を計算
+            // Loop over recent events of the particle and calculate distance to new event
             for (const auto& recent_event : particle.recent_events) {
-                // ガウス分布に基づいた距離を計算
+                // Calculate distance based on Gaussian distribution
                 double gaussian_score = gaussian_distance(x, y, time, std::get<0>(recent_event), std::get<1>(recent_event), std::get<2>(recent_event), sigma_x, sigma_t);
 
-                // スコアが閾値を超えた場合にイベントのインデックスを追加
+                // If score exceeds threshold, add event index
                 if (gaussian_score >= gaussian_threshold) {
                     particle.add_event(x, y, time);
                     found_overlap = true;
@@ -151,19 +151,19 @@ std::vector<ParticleResult> track_particles_cpp(const std::vector<std::tuple<int
             }
         }
 
-        // もし、どの粒子とも重なりがない場合、新しい粒子を作成
+        // If no overlap with any particle, create a new particle
         if (!found_overlap) {
-            particle_id_counter++; // 粒子IDに1を追加
+            particle_id_counter++; // Add 1 to particle ID
             Particle new_particle(particle_id_counter, x, y, time);
             particles.push_back(new_particle);
-        // 重なりがある場合、重なりがある粒子をマージ
+        // If overlap exists, merge with overlapping particle
         } else if (overlapping_particle_index != std::numeric_limits<size_t>::max()) {
-            // あるイベントが複数の粒子と重なっている場合、2つの粒子の直近のイベントを比較し、重なりがあるかどうかをチェック。閾値を超えた場合、粒子をマージ
+            // If the same event overlaps with multiple particles, compare recent events of the two particles and check for overlap. If threshold is exceeded, merge particles
             for (size_t i = 0; i < particles.size(); ++i) {
                 if (i != overlapping_particle_index) {
                     Particle& particle = particles[i];
 
-                    // ガウス分布に基づく距離計算で、同じ条件で2つの粒子が重なっているかチェック
+                    // Check overlap between two particles using same Gaussian distance condition
                     for (const auto& recent_event : particle.recent_events) {
                         double gaussian_score = gaussian_distance(
                             std::get<0>(particles[overlapping_particle_index].recent_events.back()),
@@ -175,9 +175,9 @@ std::vector<ParticleResult> track_particles_cpp(const std::vector<std::tuple<int
                             sigma_x, sigma_t);
 
                         if (gaussian_score >= gaussian_threshold) {
-                            // 粒子をマージ
+                            // Merge particles
                             particles[overlapping_particle_index].merge(particle);
-                            particles.erase(particles.begin() + i);  // Merge後、消す
+                            particles.erase(particles.begin() + i);  // Remove after merge
                             break;
                         }
                     }
@@ -185,16 +185,16 @@ std::vector<ParticleResult> track_particles_cpp(const std::vector<std::tuple<int
             }
         }
 
-        // 最後のイベントから2000ms以上経過し、質量が閾値より小さい場合、粒子を削除
+        // Remove particles if more than 2000ms have passed since last event and mass is below threshold
         particles.erase(std::remove_if(particles.begin(), particles.end(),
             [time, m_threshold](const Particle& p) { return !p.is_active(time, m_threshold); }), particles.end());
     }
 
-    // 最後の時間ステップで、質量が閾値より小さい粒子を削除
+    // At final time step, remove particles whose mass is below threshold
     particles.erase(std::remove_if(particles.begin(), particles.end(),
         [m_threshold](const Particle& p) { return !p.is_active_final(m_threshold); }), particles.end());
 
-    // 結果を返す
+    // Return results
     std::vector<ParticleResult> results;
     for (const auto& particle : particles) {
         results.push_back(particle.get_result());
