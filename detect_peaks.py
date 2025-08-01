@@ -1,20 +1,20 @@
 import numpy as np
 from scipy.signal import find_peaks
 
-# 定数の設定
-FILTER_LOW = 4.0  # フィルタリングの下限周波数
-FILTER_HIGH = 30.0  # フィルタリングの上限周波数
+# Settings
+FILTER_LOW = 4.0  # Lower cutoff frequency of filtering
+FILTER_HIGH = 30.0  # Upper cutoff frequency of filtering
 
 
 def peak_detection(fft_amplitude, fft_freq):
-    # 周波数を制限
+    # Limit the frequency
     freq_mask = (fft_freq >= FILTER_LOW) & (fft_freq <= FILTER_HIGH)
     # fft_freq = fft_freq[freq_mask]
     # fft_amplitude = fft_amplitude[freq_mask]
     filter_idx = np.where(freq_mask)
     fft_amplitude = fft_amplitude[filter_idx]
     min_area_idx = filter_idx[0][0]
-    # ピークを見つける
+    # Find Peaks
     peaks, _ = find_peaks(
         fft_amplitude, height=np.max(fft_amplitude) * 0.85
     )  # 10% threshold for peaks
@@ -38,7 +38,7 @@ def peak_detection(fft_amplitude, fft_freq):
         max_height_index = peaks[np.argmax(peak_heights)] + min_area_idx
         peaks = peaks + min_area_idx
     else:
-        # ピークがない場合は処理をスキップ
+        # Skip processing if no peak is detected
         print(f"No peaks found in this file")
         peaks = peaks + min_area_idx
         max_height_index = []
@@ -90,7 +90,7 @@ def custom_peak_detection(fft_amp, fft_fq):
         last_amp_point = amp_point
 
     if list_peak_idx:
-        # 4 - 30Hzの範囲で最も値が大きなピークのみを抽出
+        # Extract only the largest peak
         valid_peak_indices = [
             idx
             for idx in list_peak_idx
