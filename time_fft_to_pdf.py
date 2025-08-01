@@ -21,7 +21,7 @@ sns.set(
 def plot_and_save_time_series_fft_to_pdf(
     folder_name, data_list, folder_file_names, output_pdf_path
 ):
-    """選択したCSVファイルの時系列データとFFT結果をPDFに保存する"""
+    """Save the time series data and FFT results of selected CSV files into a PDF"""
     with PdfPages(output_pdf_path) as pdf:
         for i in range(0, len(data_list), 5):
             fig, axes = plt.subplots(5, 2, figsize=(15, 20))
@@ -33,29 +33,28 @@ def plot_and_save_time_series_fft_to_pdf(
                 time_series = data_list[i + j]
                 data_name = os.path.basename(folder_file_names[i + j])
 
-                # 時系列データのプロット
+                # Plot time series data
                 axes[j, 0].plot(time_series)
                 axes[j, 0].set_title(f"{data_name}")
                 axes[j, 0].set_xlabel("Time [ms]")
                 axes[j, 0].set_ylabel("Number of pixel")
 
-                # FFTの計算とプロット
+                # Compute and plot FFT
                 preprocessed_series = preprocess_time_series(time_series)
                 padded_series = pad_time_series(preprocessed_series)
                 freqs, fft_magnitude = compute_fft(padded_series)
 
-                # カスタムピーク検知
+                # Custom peak detection
                 peak_indices, _ = peak_detection(fft_magnitude, freqs)
                 peak_freqs = freqs[peak_indices]
                 peak_values = fft_magnitude[peak_indices]
 
-                # FFT結果のプロット
                 axes[j, 1].plot(freqs, fft_magnitude)
                 axes[j, 1].set_xlim((0, 30))
                 axes[j, 1].set_xlabel("Frequency [Hz]")
                 axes[j, 1].set_ylabel("Amplitude")
 
-                # 検出されたピークをプロット
+                # Plot detected peaks
                 if len(peak_freqs) > 0:
                     axes[j, 1].plot(peak_freqs, peak_values, "rx")
                     axes[j, 1].set_title(
@@ -71,15 +70,15 @@ def plot_and_save_time_series_stft_to_pdf(
     folder_name, data_list, output_pdf_path
 ):
     """
-    folder_name: ファイル名のリスト
-    data_list: 時系列データのリスト
-    output_pdf_path: 出力PDFのパス
-
-    folder_nameごとのdata_listをstft処理をしてプロットしてPDFに保存
+    folder_name: List of file names  
+    data_list: List of time series data  
+    output_pdf_path: Output PDF path  
+    
+    Perform STFT on data_list for each folder_name, plot the result, and save it to PDF
     """
-    target_data_len = 300  # fftする対象データの長さ [ms]
-    shift_length = 128  # スライドする長さ [ms]
-    window_length = 256  # 窓長（0づめしたあとの長さ）
+    target_data_len = 300  # Length of data to be used for FFT [ms]
+    shift_length = 128  # Shift length for sliding window [ms]
+    window_length = 256  # Window length (after zero-padding)
     with PdfPages(output_pdf_path) as pdf:
         for i in range(0, len(data_list), 5):
             fig, axes = plt.subplots(5, 2, figsize=(15, 20))
@@ -90,7 +89,7 @@ def plot_and_save_time_series_stft_to_pdf(
 
                 time_series = data_list[i + j]
 
-                # 時系列データのプロット
+                # Plot time series data
                 axes[j, 0].plot(time_series)
                 axes[j, 0].set_title(f"{folder_name} - Time Series {i + j + 1}")
                 axes[j, 0].set_xlabel("Time [ms]")
@@ -131,7 +130,6 @@ def plot_and_save_time_series_stft_to_pdf(
                 #         padded_series = pad_time_series(target_arr)
                 #     freqs, fft_magnitude = compute_fft(padded_series)
 
-                #     # カスタムピーク検知
                 #     peak_indices, _ = peak_detection(fft_magnitude, freqs)
 
                 #     print(f"STFT peaks: {peak_indices}")
@@ -155,7 +153,7 @@ def plot_and_save_time_series_stft_to_pdf(
 
 
 def plot_and_save_violin_to_pdf(all_peak_freqs, output_pdf_path, data_labels):
-    """バイオリンプロットを作成して1つのPDFに保存"""
+    """Create violin plot and save it into a single PDF"""
     with PdfPages(output_pdf_path) as pdf:
         fig, ax = plt.subplots(figsize=(4, 6))
         # sns.violinplot(
