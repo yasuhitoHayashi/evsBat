@@ -48,20 +48,19 @@ def read_pickles(input_path, folder_name):
 def process_pickle_file(particle_output_file):
     output_directory = os.path.dirname(particle_output_file)
 
-    # 出力フォルダ (fft_results) を作成
     fft_results_dir = os.path.join(output_directory, "windowed_fft_results")
     os.makedirs(
         fft_results_dir, exist_ok=True
-    )  # 既に存在していてもエラーを出さない
+    )
 
-    # ファイル名の処理: 前から3つ目の "_" より後の部分を使い、".pkl"を除去
+    # File name handling: use the part after the third "_" from the beginning, and remove ".pkl"
     base_filename = os.path.basename(particle_output_file)
     base_filename = "_".join(base_filename.split("_")[3:]).replace(".pkl", "")
 
     with open(particle_output_file, "rb") as f:
         particle_data = pickle.load(f)
 
-    # イベント数が最大の粒子を抽出
+    # Extract the particle with the maximum number of events
     # max_particle_id = max(
     #     particle_data, key=lambda p: len(particle_data[p]["events"])
     # )
@@ -69,21 +68,21 @@ def process_pickle_file(particle_output_file):
     particle_info = particle_data
     event_coords = np.array(particle_info)
 
-    # ミリ秒に変換
+    # Convert to milliseconds
     event_times = event_coords[:, 2] * 1e-3
 
-    # 最小時間と最大時間を取得
+    # Get minimum and maximum time
     min_time, max_time = np.min(event_times), np.max(event_times)
 
-    # 1ミリ秒単位の時間ビンを作成
+    # Create time bins with 1ms intervals
     time_bin_size = 1  # ms
     time_bins = np.arange(min_time, max_time + time_bin_size, time_bin_size)
 
-    # 各時間ビンでのイベント数を計算
+    # Count number of events in each time bin
     event_counts, _ = np.histogram(event_times, bins=time_bins)
 
 if os.path.isdir(input_path):
-    # ディレクトリ内のすべてのファイルを処理
+    # Process all files in the directory
     all_peak_freqs = []
     dict_peak_freqs = {}
     dict_file_names = {}
@@ -122,11 +121,11 @@ if os.path.isdir(input_path):
             folder_name, event_num_list, folder_file_names, output_pdf_path
         )
 
-    # バイオリンプロットを1つのPDFに保存
+    # Save violin plot to a single PDF
     violin_pdf_path = os.path.join(input_path, "peak_frequency_comparison.pdf")
     plot_and_save_violin_to_pdf(all_peak_freqs, violin_pdf_path, DATA_LABELS)
 
-    # データをcsvに保存 (ピーク周波数とファイル名を含める)
+    # Save data to CSV (including peak frequency and file names)
     df_peak_freqs = pd.DataFrame(
         dict([(k, pd.Series(v)) for k, v in dict_peak_freqs.items()])
     )
@@ -135,14 +134,13 @@ if os.path.isdir(input_path):
         dict([(k + "_file", pd.Series(v)) for k, v in dict_file_names.items()])
     )
 
-    # ファイル名とピーク周波数を結合して1つのデータフレームに
+    # Combine file names and peak frequencies into one DataFrame
     df_combined = pd.concat([df_peak_freqs, df_file_names], axis=1)
 
-    # 結果を"peak_freqs.csv"に保存
+    # Save the results to "peak_freqs.csv"
     df_combined.to_csv(os.path.join(input_path, "peak_freqs.csv"))
 
 elif os.path.isfile(input_path) and input_path.endswith(".pkl"):
-    # 単一ファイルを処理
     print(f"Processing file: {input_path}")
     process_pickle_file(input_path)
 else:
