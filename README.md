@@ -41,8 +41,8 @@ In post-analysis, frequency analysis of the variations in event count is also po
 
 ## Analysis Flow
 
-The sample dataset in `sampleData/` already contains a raw CSV capture plus the pickled results produced by the tracker.  
-To repeat the full pipeline starting from the CSV (and regenerate the derived artifacts), follow the steps below.
+The sample dataset in `sampleData/` already contains a CSV data plus the pickled results produced by the tracker.  
+To repeat the full pipeline starting from the CSV, follow the steps below.
 
 1. **Build the tracker extension (first time only)**
    ```bash
@@ -54,20 +54,20 @@ To repeat the full pipeline starting from the CSV (and regenerate the derived ar
    ```bash
    python trackParticlesC.py -i sampleData/recording_2023-09-14_20-42-19_39.csv
    ```
-   - Produces `sampleData/particle_tracking_results_recording_2023-09-14_20-42-19_39.pkl` containing centroid histories and event lists.
+   - Produces `sampleData/particle_tracking_results_recording_2023-09-14_20-42-19_39.pkl` containing centroid histories and events.
 
-3. **Split the densest trajectory into upper / lower event sets**
+3. **Split the trajectory into upper / lower event sets**
    ```bash
    python splitTrajectory.py -i sampleData/particle_tracking_results_recording_2023-09-14_20-42-19_39.pkl
    ```
-   - Writes pickle files under `sampleData/outputs/upper` and `sampleData/outputs/lower`.
+   - Writes pickle files under `sampleData/upper` and `sampleData/lower`.
 
 4. **Inspect trajectories or event clouds (optional visual checks)**
    ```bash
    # 3D scatter of the raw events
    python plotAllData.py -i sampleData/recording_2023-09-14_20-42-19_39.csv
 
-   # Centroid trajectory plots
+   # 3D scatter of the Tracked events
    python plotTrajectory.py -i sampleData/particle_tracking_results_recording_2023-09-14_20-42-19_39.pkl
 
    # Visualise upper/lower split results

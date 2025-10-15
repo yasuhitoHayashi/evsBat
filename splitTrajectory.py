@@ -50,9 +50,9 @@ def split_events_by_centroid(particle_info):
     return np.asarray(upper_events, dtype=np.float32), np.asarray(lower_events, dtype=np.float32)
 
 
-def save_event_sets(outputs_dir, base_filename, particle_id, upper_events, lower_events):
-    upper_dir = os.path.join(outputs_dir, 'upper')
-    lower_dir = os.path.join(outputs_dir, 'lower')
+def save_event_sets(output_root, base_filename, particle_id, upper_events, lower_events):
+    upper_dir = os.path.join(output_root, 'upper')
+    lower_dir = os.path.join(output_root, 'lower')
     os.makedirs(upper_dir, exist_ok=True)
     os.makedirs(lower_dir, exist_ok=True)
 
@@ -68,7 +68,7 @@ def save_event_sets(outputs_dir, base_filename, particle_id, upper_events, lower
     print(f'Saved lower events to {lower_file}')
 
 
-def process_particle_file(pickle_file, outputs_dir):
+def process_particle_file(pickle_file, output_root):
     with open(pickle_file, 'rb') as f:
         particle_data = pickle.load(f)
 
@@ -91,25 +91,24 @@ def process_particle_file(pickle_file, outputs_dir):
     if not base_filename:
         base_filename = os.path.splitext(os.path.basename(pickle_file))[0]
 
-    save_event_sets(outputs_dir, base_filename, target_particle, upper_events, lower_events)
+    save_event_sets(output_root, base_filename, target_particle, upper_events, lower_events)
 
 
-def process_directory(input_directory, outputs_dir):
+def process_directory(input_directory, output_root):
     for filename in sorted(os.listdir(input_directory)):
         if filename.endswith('.pkl'):
             file_path = os.path.join(input_directory, filename)
             print(f'Processing file: {file_path}')
-            process_particle_file(file_path, outputs_dir)
+            process_particle_file(file_path, output_root)
 
 
 input_path = args.input
 
 if os.path.isdir(input_path):
-    outputs_dir = os.path.join(input_path, 'outputs')
-    process_directory(input_path, outputs_dir)
+    process_directory(input_path, input_path)
 elif os.path.isfile(input_path) and input_path.endswith('.pkl'):
-    outputs_dir = os.path.join(os.path.dirname(input_path), 'outputs')
+    output_root = os.path.dirname(input_path)
     print(f'Processing file: {input_path}')
-    process_particle_file(input_path, outputs_dir)
+    process_particle_file(input_path, output_root)
 else:
     print(f'Error: {input_path} is not a valid pickle file or directory.')

@@ -86,3 +86,28 @@ def test_save_event_sets_writes_pickles(tmp_path, split_module):
 
     assert np.allclose(loaded_upper, upper)
     assert np.allclose(loaded_lower, lower)
+
+
+def test_process_particle_file_outputs_next_to_pickle(tmp_path, split_module):
+    pickle_path = tmp_path / "particle.pkl"
+    particle_data = {
+        1: {
+            "events": [
+                (0.0, 0.0, 0.0),
+                (0.0, 10.0, 1.0),
+            ],
+            "centroid_history": [
+                (0.0, 0.0, 0.0),
+                (1.0, 0.0, 5.0),
+            ],
+        }
+    }
+    with pickle_path.open("wb") as f:
+        pickle.dump(particle_data, f)
+
+    split_module.process_particle_file(str(pickle_path), str(tmp_path))
+
+    upper_dir = tmp_path / "upper"
+    lower_dir = tmp_path / "lower"
+    assert upper_dir.exists()
+    assert lower_dir.exists()
