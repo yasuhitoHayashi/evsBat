@@ -23,8 +23,7 @@ args = parser.parse_args()
 
 sampling_ratio = 0.5
 
-def process_pickle_file(particle_output_file):
-    outputs_dir = os.path.join(os.getcwd(), 'outputs')
+def process_pickle_file(particle_output_file, outputs_dir):
     os.makedirs(outputs_dir, exist_ok=True)
 
     base_filename = os.path.basename(particle_output_file)
@@ -78,13 +77,15 @@ def process_pickle_file(particle_output_file):
 input_path = args.input
 
 if os.path.isdir(input_path):
+    outputs_dir = os.path.join(input_path, 'outputs')
     for filename in os.listdir(input_path):
         if filename.endswith('.pkl'):
             file_path = os.path.join(input_path, filename)
             print(f"Processing file: {file_path}")
-            process_pickle_file(file_path)
+            process_pickle_file(file_path, outputs_dir)
 elif os.path.isfile(input_path) and input_path.endswith('.pkl'):
+    outputs_dir = os.path.join(os.path.dirname(input_path), 'outputs')
     print(f"Processing file: {input_path}")
-    process_pickle_file(input_path)
+    process_pickle_file(input_path, outputs_dir)
 else:
     print(f"Error: {input_path} is not a valid pickle file or directory.")

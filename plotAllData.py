@@ -1,78 +1,82 @@
-import pandas as pd
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
-from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+import argparse
+import os
 
-# Path to the CSV file
-file_path = '/sampleData/yubi_605.csv'
+plt.rcParams.update({
+    'lines.linewidth': 2,
+    'grid.linestyle': '--',
+    'axes.grid': True,
+    'axes.facecolor': 'white',
+    'axes.edgecolor': 'gray',
+    'font.size': 11,
+    'axes.labelsize': 14,
+    'xtick.labelsize': 11,
+    'ytick.labelsize': 11,
+    'figure.figsize': (12, 8),
+})
 
-# Read the CSV file
-data = pd.read_csv(file_path, header=None, names=['x', 'y', 'polarity', 'time'])
-data['time'] = data['time'] * 1e-3
-# Filter data within a specific time range
-data = data[(data['time'] > 0) & (data['time'] < 2000)]
+parser = argparse.ArgumentParser(description='Plot all events from CSV files.')
+parser.add_argument('-i', '--input', required=True, help='Path to the input CSV file or directory.')
+args = parser.parse_args()
 
-dataP = data[data['polarity'] == 1]
-dataN = data[data['polarity'] == 0]
+sampling_ratio = 0.5
 
-# Create the plot
-fig = plt.figure(figsize=(16, 10))
+def process_csv_file(csv_file, outputs_dir):
+    os.makedirs(outputs_dir, exist_ok=True)
 
-# Place three 2D plots on the top row
-ax2d_1 = fig.add_subplot(231)
-ax2d_2 = fig.add_subplot(232)
-ax2d_3 = fig.add_subplot(233)
+    data = pd.read_csv(csv_file, header=None, names=['x', 'y', 'polarity', 'time'])
+    data['time'] *= 1e-3
 
-# Filter data by time range and plot on the XY plane
-time_ranges = [(500, 550), (1000, 1050), (1500, 1550)]
-colors = ['red', 'green', 'purple']  # Plot on each XY plane
-axes_2d = [ax2d_1, ax2d_2, ax2d_3]
+    fig = plt.figure(figsize=(10, 8))
+    ax = fig.add_subplot(111, projection='3d')
 
-for i, (start_time, end_time) in enumerate(time_ranges):
-    filtered_data = dataP[(dataP['time'] >= start_time) & (dataP['time'] <= end_time)]
-    
-    # Plot on each XY plane
-    axes_2d[i].scatter(filtered_data['x'], filtered_data['y'], s=2, c=colors[i], edgecolors='none', marker='.')
-    axes_2d[i].set_title(f'{start_time}ms - {end_time}ms')
-    axes_2d[i].set_xlim([0, 1280])
-    axes_2d[i].set_ylim([0, 720])
-    axes_2d[i].set_xlabel('X Coordinate')
-    axes_2d[i].set_ylabel('Y Coordinate')
+    colors = {1: 'black', 0: 'gray'}
+    for polarity, group_data in data.groupby('polarity'):
+        group_points = group_data[['time', 'x', 'y']].to_numpy()
 
-# Place a 3D plot on the bottom row
-ax3d = fig.add_subplot(212, projection='3d')  
-ax3d.scatter(dataP['time'], dataP['x'], dataP['y'], s=2, c='blue', edgecolors='none', marker='.')
+        num_events = len(group_points)
+        if sampling_ratio < 1.0:
+            sample_size = int(num_events * sampling_ratio)
+            if sample_size > 0:
+                sampled_indices = np.random.choice(num_events, sample_size, replace=False)
+                sampled_points = group_points[sampled_indices]
 
-# Fill each time range with a 3D box
-for i, (start_time, end_time) in enumerate(time_ranges):
-    # Set vertices to construct the faces of the box
-    verts = [
-        # Front face
-        [[start_time, 0, 0], [start_time, 1280, 0], [start_time, 1280, 720], [start_time, 0, 720]],
-        # Back face
-        [[end_time, 0, 0], [end_time, 1280, 0], [end_time, 1280, 720], [end_time, 0, 720]],
-        # Left face
-        [[start_time, 0, 0], [start_time, 0, 720], [end_time, 0, 720], [end_time, 0, 0]],
-        # Right face
-        [[start_time, 1280, 0], [start_time, 1280, 720], [end_time, 1280, 720], [end_time, 1280, 0]],
-        # Bottom face
-        [[start_time, 0, 0], [start_time, 1280, 0], [end_time, 1280, 0], [end_time, 0, 0]],
-        # Top face
-        [[start_time, 0, 720], [start_time, 1280, 720], [end_time, 1280, 720], [end_time, 0, 720]],
-    ]
-    
-    # Draw each face with transparency
-    poly = Poly3DCollection(verts, color=colors[i], alpha=0.3)
-    ax3d.add_collection3d(poly)
+                ax.scatter(sampled_points[:, 0], sampled_points[:, 1], sampled_points[:, 2], c=colors.get(polarity, 'gray'), marker='.', alpha=0.3)
+        else:
+            ax.scatter(group_points[:, 0], group_points[:, 1], group_points[:, 2], c=colors.get(polarity, 'gray'), marker='.', alpha=0.3)
 
-# Set labels
-ax3d.set_ylabel('X Coordinate')
-ax3d.set_zlabel('Y Coordinate')
-ax3d.set_xlabel('Time (milliseconds)')
-ax3d.set_xlim([0, 2000])
-ax3d.set_ylim([0, 1280])
-ax3d.set_zlim([720, 0])
+    ax.set_xlabel('Time (milliseconds)')
+    ax.set_ylabel('X Coordinate (pixels)')
+    ax.set_zlabel('Y Coordinate (pixels)')
 
-plt.tight_layout()
-plt.show()
+    ax.set_xlim([data['time'].min(), data['time'].max()])
+    ax.set_ylim([0, 1280])
+    ax.set_zlim([720, 0])
+    ax.view_init(elev=4, azim=-40)
+
+    ax.legend()
+
+    base_filename = os.path.splitext(os.path.basename(csv_file))[0]
+    output_image_file = os.path.join(outputs_dir, f'{base_filename}_all.png')
+    plt.tight_layout()
+    plt.savefig(output_image_file)
+    plt.close()
+
+
+input_path = args.input
+
+if os.path.isdir(input_path):
+    outputs_dir = os.path.join(input_path, 'outputs')
+    for filename in os.listdir(input_path):
+        if filename.endswith('.csv'):
+            file_path = os.path.join(input_path, filename)
+            print(f"Processing file: {file_path}")
+            process_csv_file(file_path, outputs_dir)
+elif os.path.isfile(input_path) and input_path.endswith('.csv'):
+    outputs_dir = os.path.join(os.path.dirname(input_path), 'outputs')
+    print(f"Processing file: {input_path}")
+    process_csv_file(input_path, outputs_dir)
+else:
+    print(f"Error: {input_path} is not a valid CSV file or directory.")
