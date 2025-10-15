@@ -39,6 +39,51 @@ In post-analysis, frequency analysis of the variations in event count is also po
 └── README.md                  # Project documentation (this file)
 ```
 
+## Analysis Flow
+
+The sample dataset in `sampleData/` already contains a raw CSV capture plus the pickled results produced by the tracker.  
+To repeat the full pipeline starting from the CSV (and regenerate the derived artifacts), follow the steps below.
+
+1. **Build the tracker extension (first time only)**
+   ```bash
+   python -m pip install -U pip setuptools wheel pybind11
+   python setup.py build_ext --inplace
+   ```
+
+2. **Track particles from the CSV**
+   ```bash
+   python trackParticlesC.py -i sampleData/recording_2023-09-14_20-42-19_39.csv
+   ```
+   - Produces `sampleData/particle_tracking_results_recording_2023-09-14_20-42-19_39.pkl` containing centroid histories and event lists.
+
+3. **Split the densest trajectory into upper / lower event sets**
+   ```bash
+   python splitTrajectory.py -i sampleData/particle_tracking_results_recording_2023-09-14_20-42-19_39.pkl
+   ```
+   - Writes pickle files under `sampleData/outputs/upper` and `sampleData/outputs/lower`.
+
+4. **Inspect trajectories or event clouds (optional visual checks)**
+   ```bash
+   # 3D scatter of the raw events
+   python plotAllData.py -i sampleData/recording_2023-09-14_20-42-19_39.csv
+
+   # Centroid trajectory plots
+   python plotTrajectory.py -i sampleData/particle_tracking_results_recording_2023-09-14_20-42-19_39.pkl
+
+   # Visualise upper/lower split results
+   python plotHalf.py -i sampleData/outputs
+   ```
+   - Each command saves figures into an `outputs/` folder next to the input data.
+
+5. **Run frequency analysis on the tracked events**
+   ```bash
+   python plotEventCountFFT.py -i sampleData
+   ```
+   - Generates PDFs (time series + FFT) and `peak_freqs.csv` under `sampleData/`.
+   - Uses helper utilities from `process_fft.py`, `detect_peaks.py`, and `time_fft_to_pdf.py` to locate dominant wing-beat frequencies.
+
+Repeat the above against your own CSV directories by swapping the `-i` paths.
+
 ## Modules Overview
 ### setup.py
 Build script for the `particle_tracking` pybind11 extension defined in `particle_tracking.cpp`. It uses `setuptools` and pulls the necessary include paths from `pybind11`. After installing the Python requirements (see `setup.py` dependencies), build the extension in-place:
