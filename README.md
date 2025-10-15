@@ -20,48 +20,86 @@ In post-analysis, frequency analysis of the variations in event count is also po
 ## Project Structure
 ```bash
 .
-├── sampleData/                    # Example CSV / PKL / PNG assets
+├── detect_peaks.py            # Utility helper for FFT peak detection
+├── particle_tracking.cpp      # C++ implementation of the particle tracker (pybind11 extension)
+├── plotAllData.py             # Visualise raw event CSV data in 3D
+├── plotEventCountFFT.py       # FFT analysis of event-count time series
+├── plotHalf.py                # Plot upper/lower event splits created by splitTrajectory.py
+├── plotTrajectory.py          # Plot tracked particle trajectories from pickle files
+├── process_fft.py             # Shared FFT processing helpers
+├── sampleData/                # Example CSV / PKL files and generated assets
 │   ├── recording_2023-09-14_20-42-19_39.csv
 │   ├── particle_tracking_results_recording_2023-09-14_20-42-19_39.pkl
-│   └── fftAnalysis.png
-├── particle_tracking.cpp       # Handles event-based particle tracking in C++
-├── plotAllData.py          # Plotting script for All data
-├── plotEventCountFFT.py      # Performs FFT analysis on event count variations using a Hamming window
-├── plotTrajectory.py          # Plots trajectory data from tracked events
-├── setup.py                 #  Script for building the C++ code for particle tracking
-├── trackParticlesC.py                 # Prticle tracking code
-├── detect_peaks.py             # Utility for detecting peaks in FFT data
-├── process_fft.py              # Helper functions for FFT processing
-├── time_fft_to_pdf.py          # Converts time-domain FFT results to a PDF
-└── README.md                 # Project documentation (this file)
+│   └── outputs/
+├── setup.py                   # Build script for the particle_tracking extension
+├── splitTrajectory.py         # Split the densest particle events into upper/lower sets
+├── tests/                     # Unit tests
+├── time_fft_to_pdf.py         # Export FFT results to PDF
+├── trackParticlesC.py         # Python entry point for running the tracker
+└── README.md                  # Project documentation (this file)
 ```
 
 ## Modules Overview
 ### setup.py
-Script for building the C++ code using pybind11. It compiles the particle_tracking.cpp file into a Python module (particle_tracking). This code is now only tested on M1 mac and Windows 11 environments.
+Build script for the `particle_tracking` pybind11 extension defined in `particle_tracking.cpp`. It uses `setuptools` and pulls the necessary include paths from `pybind11`. After installing the Python requirements (see `setup.py` dependencies), build the extension in-place:
 
 ```bash
-python3 setup.py build_ext --inplace
+python -m pip install pybind11 setuptools wheel
+python setup.py build_ext --inplace
 ```
 
+The command produces `particle_tracking.*.so` (or `.pyd` on Windows) next to the source file so the Python utilities can import it.
+
 ### trackParticlesC.py
-Reads and processes CSV files generated from .RAW files, performs particle tracking using a C++ module, and saves the results. It reads event data, optionally filters it by polarity (if needed), and applies parameters such as spatial and temporal thresholds for particle detection. The tracked particle data, including centroid histories and event points, is saved as a pickle file for further analysis.
-You need to change parameters (sigma_x, sigma_t, gaussian_threshold, m_threshold) in the scripts.
+CLI wrapper for the `particle_tracking` extension. It loads CSV event streams, applies the configurable tracker parameters (`sigma_x`, `sigma_t`, `gaussian_threshold`, `m_threshold`), and writes a pickle per CSV containing centroid histories and raw events. Tweak the parameters to match your scene before running:
+
+```bash
+python trackParticlesC.py -i path/to/events.csv
+```
 
 #### Arguments
-- -i Path to the input csv file or directory.
+- `-i / --input` Path to an event CSV file or a directory that contains multiple CSV files.
+
+### splitTrajectory.py
+Loads a particle-tracking pickle, finds the particle with the most events, smooths its centroid path, and splits the events into “upper” and “lower” sets relative to that trajectory. The separated events are written as pickles under `<input>/outputs/upper` and `<input>/outputs/lower` so `plotHalf.py` can visualise them later.
+
+#### Arguments
+- `-i / --input` Path to a particle-tracking pickle file or a directory containing multiple pickles.
+
 
 ### plotTrajectory.py
-Reads particle tracking data from a pickle file and plots the centroid trajectories of particles in 3D. The script also has an option to plot individual events associated with each particle, either fully or by sampling the data for visualization purposes.
+Loads particle-tracking pickle files, renders each particle’s centroid trail in 3D, and samples the per-event scatter for visibility. Images are written to an `outputs` folder beside the source file or directory.
 
 #### Arguments
-- -i Path to the input CSV file.
+- `-i / --input` Path to a particle-tracking pickle file or directory of pickle files.
+
+### plotAllData.py
+Downsamples from raw event CSVs and renders them in a shared 3D scatter plot. Use it to inspect the full event stream before tracking. Images are written to an `outputs` folder next to the provided file or directory.
+
+#### Arguments
+- `-i / --input` Path to an event CSV file or directory containing CSV files.
+
+### plotHalf.py
+Consumes the upper/lower event pickles created by `splitTrajectory.py` and plots them together. By default it renders a 3D scatter of time vs. x/y; pass `--2d` to view only the spatial projection. Output images are saved to an `outputs` directory beside the supplied folder.
+
+#### Arguments
+- `-i / --input` Path to a directory that contains `upper` and `lower` pickle folders.
+- `--2d` Render only the x/y view instead of the 3D time plot.
 
 ### plotEventCountFFT.py
-Performs FFT analysis on event count variations from particle tracking data. The script processes pickle files generated from tracking data and calculates the event counts over time. It then applies FFT to the event counts, identifies peaks in the frequency domain, and saves both the peak data and corresponding FFT plots. The results are output in both text and PNG formats for further analysis.
+Aggregates event counts from pickle files, applies FFT analysis, and exports summaries (CSV, PDFs) that highlight dominant frequencies. Uses helper modules in `process_fft.py`, `detect_peaks.py`, and `time_fft_to_pdf.py` for the heavy lifting.
 
 #### Arguments
-- -i Path to the input pickle file or directory.
+- `-i / --input` Path to a directory containing categorized pickle files or a single pickle file.
+
+### process_fft.py
+FFT utility functions shared by `plotEventCountFFT.py`, including windowing and spectrum calculation helpers.
+
+### detect_peaks.py
+Helper routines for peak detection inside FFT magnitude spectra. Called from `plotEventCountFFT.py` to isolate dominant frequencies.
+
+### time_fft_to_pdf.py
+Formatting utilities that render event-count time series and frequency plots into PDF reports. Invoked by `plotEventCountFFT.py`.
 
 ## License
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
