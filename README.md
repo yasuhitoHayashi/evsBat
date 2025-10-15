@@ -5,10 +5,10 @@ The output data consists of the trajectory of the centroid and point clouds of e
 In post-analysis, frequency analysis of the variations in event count is also possible.
 
 #### Input & Output
-![Frequency](sampleData/inputAndOutput.png)
+![Frequency](sampleData/outputs/inputAndOutput.png)
 
 #### Output2: frequency
-![Frequency](sampleData/fftAnalysis.png)
+![Frequency](sampleData/outputs/fftAnalysis.png)
 
 
 ## Features
